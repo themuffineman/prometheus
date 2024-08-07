@@ -4,7 +4,6 @@ import {config} from 'dotenv'
 import { serverVerification } from "./middleware"
 
 config()
-
 const app = express()
 app.listen(process.env.G_MAPS_PORT, ()=>{
     console.log('GMAPS server up and running')
@@ -23,6 +22,22 @@ app.post(async (req,res)=>{
         // Wait for cards to load
         await page.waitForSelector('div.rgnuSb.xYjf2e');
         await page.waitForSelector('.AIYI7d');
+
+        const cards = await page.$$('div[jsname="gam5T"]');
+        const initInfo = []
+        for (const card of cards) {
+            const businessName = await card.$eval('div.rgnuSb.xYjf2e', node => node.textContent);
+            const websiteATag = await card.$('a[aria-label="Website"]');
+            const url = websiteATag ? await (await websiteATag.getProperty('href')).jsonValue() : null;
+            initInfo.push({name: businessName, url: url})
+        }
+        await page.close()
+        const finalInfo = []
+        for (const info of initInfo){
+            const returnedData = await extractWebsiteData(info.url)
+            finalInfo.push(returnedData)
+        }
+        return res.json({data: finalInfo}).status(200)
 
     } catch (error) {
         
