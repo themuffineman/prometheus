@@ -10,7 +10,7 @@ app.listen(process.env.G_MAPS_PORT, ()=>{
 })
 app.use(serverVerification)
 app.use(express.json());
-app.post(async (req,res)=>{
+app.post('/api/google-maps', async (req,res)=>{
     const {service, location , pagination } = req.body
     let browser;
     let page;
@@ -34,12 +34,20 @@ app.post(async (req,res)=>{
         await page.close()
         const finalInfo = []
         for (const info of initInfo){
-            const returnedData = await extractWebsiteData(info.url)
+            const returnedData = await extractWebsiteData(info.url) //dbd
             finalInfo.push(returnedData)
         }
+        await page.close()
+        await browser.close()
+
         return res.json({data: finalInfo}).status(200)
 
+
     } catch (error) {
-        
+        console.error("Error in GMP Scraper:", error.message)
+        await page.close()
+        await browser.close()
+        return res.sendStatus(500)
     }
 })
+app.post('api/yelp')
