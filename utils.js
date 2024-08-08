@@ -1,5 +1,6 @@
 import axios from 'axios'
-import {cheerio} from 'cheerio'
+import * as cheerio from 'cheerio'
+import url from 'url'
 
 export async function extractWebsiteData(url){
 
@@ -32,6 +33,34 @@ export async function extractWebsiteData(url){
     }
 
 }
-async function extractAtags(ur){
-    
+async function getInternalLinks(pageUrl) {
+    try {
+        const { data: html = '' } = await axios.get(pageUrl);
+        const $ = cheerio.load(html);  
+        const baseUrl = getRootDomain(pageUrl)
+        const internalLinks = [];
+
+        $('a').each((i, elem) => {
+            try {
+                const href = $(elem).attr('href')
+                if(href){
+                    if (href.includes(baseUrl)){
+                        internalLinks.push(href);
+                    }
+                }
+            } catch(error) {
+                return
+            }
+        })
+
+        return internalLinks
+    } catch (error){
+        return []
+    }
+}
+
+function getRootDomain(url) {
+    const parsedUrl = new URL(url);
+    const domain = parsedUrl.hostname;
+    return domain;
 }
