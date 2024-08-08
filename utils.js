@@ -1,7 +1,24 @@
 import axios from 'axios'
 import * as cheerio from 'cheerio'
-import url from 'url'
 
+async function getEmails(url){
+    const emails = []
+    
+    try {
+        const initialemails = await getEmailsSinglePage(url)
+        emails.push(...initialemails)
+        const aTags = getInternalLinks(url, html)
+
+        for (const link of aTags){
+            const returnedEmails = await getEmailsSinglePage(link)
+            emails.push(...returnedEmails)
+        }
+
+        return []
+    } catch (error) {
+        return []
+    }
+}
 function getInternalLinks(pageUrl, html) {
     try {
         const $ = cheerio.load(html);  
@@ -26,28 +43,10 @@ function getInternalLinks(pageUrl, html) {
         return []
     }
 }
-function getRootDomain(url) {
+function getRootDomain(url){
     const parsedUrl = new URL(url);
     const domain = parsedUrl.hostname;
     return domain;
-}
-async function getEmails(url){
-    const emails = []
-    
-    try {
-        const initialemails = await getEmailsSinglePage(url)
-        emails.push(...initialemails)
-        const aTags = getInternalLinks(url, html)
-
-        for (const link of aTags){
-            const returnedEmails = await getEmailsSinglePage(link)
-            emails.push(...returnedEmails)
-        }
-
-        return []
-    } catch (error) {
-        return []
-    }
 }
 async function getEmailsSinglePage(url){
     const emails = []
