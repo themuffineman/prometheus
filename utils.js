@@ -114,7 +114,46 @@ async function verifyEmail(email) {
         reason: validity.reason || null
     }
 }
+async function generateEmailPermutations(firstName, lastName, domain) {
 
+    const first = firstName.toLowerCase();
+    const last = lastName.toLowerCase();
+    const f = first.charAt(0);
+    const l = last.charAt(0);
+    const verifiedEmails = []
+
+    const parsedUrl = new URL(domain);
+    const origin = parsedUrl.origin;
+
+    const emailPatterns = [
+        `${first}@${origin}`,
+        `${last}@${origin}`,
+        `${first}.${last}@${origin}`,
+        `${first}${last}@${origin}`,
+        `${f}.${last}@${origin}`,
+        `${f}_${last}@${origin}`,
+        `${last}.${first}@${origin}`,
+        `${first}-${last}@${origin}`,
+        `${last}-${first}@${origin}`,
+        `${first}_${last}@${origin}`,
+        `${f}${last}@${origin}`,
+        `${first}${l}@${origin}`
+    ];
+
+    for (const email of emailPatterns){
+        const isValid = await verifyEmail(email)
+        if(isValid.isValid){
+            verifiedEmails.push(email)
+
+        }else{
+            continue
+        }
+    }
+
+
+    return verifiedEmails;
+
+}
 // async function getPhoneNumber(url) {
 //     const phoneRegex = /\+?(\d{1,3})?[-.\s]?\(?\d{1,4}\)?[-.\s]?\d{1,4}[-.\s]?\d{1,4}[-.\s]?\d{1,9}/g;
 //     try {
@@ -128,11 +167,11 @@ async function verifyEmail(email) {
 //     }
 // } under development
 
-const r = getRootDomain('https://www.anderssonwise.com/')
-console.log(r)
-// .then((result)=>{
-//     console.log(result)
-// }).catch(()=>{
-//     console.log('Error occured')
-// })
+generateEmailPermutations('petrus', 'heya', 'gmail.com')
+.then((result)=>{
+    console.log(result)
+}).catch(()=>{
+    console.log('Error occured')
+})
+
 
