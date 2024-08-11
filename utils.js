@@ -8,22 +8,23 @@ async function getEmails(url){
     try {
         const initialemails = await getEmailsSinglePage(url)
         emails.push(...initialemails)
-        const links = getInternalLinks(url, html)
+        const links = await getInternalLinks(url)
 
         for (const link of links){
             const returnedEmails = await getEmailsSinglePage(link)
             emails.push(...returnedEmails)
         }
 
-        return []
+        return emails
     } catch (error) {
         return []
     }
 }
-function getInternalLinks(pageUrl, html) {
+async function getInternalLinks(url) {
     try {
-        const $ = cheerio.load(html);  
-        const baseUrl = getRootDomain(pageUrl)
+        const { data: html } = await axios.get(url);
+        const $ = cheerio.load(html); 
+        const baseUrl = getRootDomain(url)
         const internalLinks = [];
 
         $('a').each((i, elem) => {
@@ -49,25 +50,35 @@ function getRootDomain(url){
     const domain = parsedUrl.hostname;
     return domain;
 }
-async function getEmailsSinglePage(url){
-    const emails = []
+async function getEmailsSinglePage(url) {
+    const emails = [];
     const emailRegex = /[a-zA-Z0-9._-]+@[a-zA-Z0-9._-]+\.[a-zA-Z0-9._-]+/g;
 
     try {
-        const { data: html } = await axios.get(url)
-        const $ = cheerio.load(html);        
-        const textContent = $('body').text()
+        const { data: html } = await axios.get(url);
+        const $ = cheerio.load(html);
+
+        // Extract emails from text content in the body
+        const textContent = $('body').text();
         const matchedEmails = textContent.match(emailRegex);
         if (matchedEmails) {
             emails.push(...matchedEmails);
         }
-        return emails
-    } catch (error) {
-        return []
-    }
 
+        // Extract emails from href attributes of a tags
+        $('a[href^="mailto:"]').each((_, element) => {
+            const href = $(element).attr('href');
+            const email = href.replace(/^mailto:/, ''); // Remove the mailto: part
+            emails.push(email);
+        });
+
+        return emails;
+    } catch (error) {
+        return [];
+    }
 }
 async function getSocialLinks(url){
+    //NOTE: only scrapes the first page
     const twitterRegex = /https?:\/\/(www\.)?twitter\.com\/[A-Za-z0-9_]+/g
     const facebookRegex = /https?:\/\/(www\.)?facebook\.com\/[A-Za-z0-9.]+/g
     const linkedinRegex = /https?:\/\/(www\.)?linkedin\.com\/in\/[A-Za-z0-9-]+/g
@@ -97,18 +108,31 @@ async function getSocialLinks(url){
 
 }
 async function verifyEmail(email) {
-    emailValidator.validate(email) // make sure to add IP roatation
-}
-async function getPhoneNumber(url) {
-    const phoneRegex = /\+?(\d{1,3})?[-.\s]?\(?\d{1,4}\)?[-.\s]?\d{1,4}[-.\s]?\d{1,4}[-.\s]?\d{1,9}/g;
-    try {
-        const { data: html } = await axios.get(url)
-        const $ = cheerio.load(html);        
-        const textContent = $('body').text()
-        const phoneNumbers = textContent.match(phoneRegex);
-        return phoneNumbers
-    } catch (error) {
-        return []
+    const validity = await emailValidator.validate(email) // make sure to add IP roatation
+    return {
+        isValid: validity.valid,
+        reason: validity.reason || null
     }
 }
+
+// async function getPhoneNumber(url) {
+//     const phoneRegex = /\+?(\d{1,3})?[-.\s]?\(?\d{1,4}\)?[-.\s]?\d{1,4}[-.\s]?\d{1,4}[-.\s]?\d{1,9}/g;
+//     try {
+//         const { data: html } = await axios.get(url)
+//         const $ = cheerio.load(html);        
+//         const textContent = $('body').text()
+//         const phoneNumbers = textContent.match(phoneRegex);
+//         return phoneNumbers
+//     } catch (error) {
+//         return []
+//     }
+// } under development
+
+const r = getRootDomain('https://www.anderssonwise.com/')
+console.log(r)
+// .then((result)=>{
+//     console.log(result)
+// }).catch(()=>{
+//     console.log('Error occured')
+// })
 
