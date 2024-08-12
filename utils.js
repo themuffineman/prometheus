@@ -1,6 +1,9 @@
 import axios from 'axios'
 import * as cheerio from 'cheerio'
 import emailValidator from 'deep-email-validator'
+import { config } from 'dotenv'
+
+config()
 
 async function getEmails(url){
     const emails = []
@@ -167,11 +170,26 @@ async function generateEmailPermutations(firstName, lastName, domain) {
 //     }
 // } under development
 
-generateEmailPermutations('petrus', 'heya', 'gmail.com')
+async function getPagePeformance(url){
+    try{
+        const res = await fetch(`https://www.googleapis.com/pagespeedonline/v5/runPagespeed?url=${url}&key=${process.env.PAGE_SPEED_API}`)
+        if(!res.ok){
+            throw new Error('Fetch Error')
+        }
+        const peformanceData = await res.json()
+        return {
+            tti: peformanceData.lighthouseResult.audits.interactive.displayValue, // The time it takes for the page to become fully interactive, where the page has loaded and is ready to respond to user inputs.
+            speed: peformanceData.lighthouseResult.audits['speed-index'].displayValue // How quickly the content of a page is visibly populated.
+        }
+    }catch(err){
+        return {error: err.message}
+    }
+}
+
+getPagePeformance("https://pendora.org")
 .then((result)=>{
     console.log(result)
-}).catch(()=>{
-    console.log('Error occured')
 })
-
-
+.catch((err)=>{
+    console.log(err)
+})
