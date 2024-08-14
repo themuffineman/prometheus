@@ -197,35 +197,6 @@ async function getPagePeformance(url){
     }
 }
 
-async function isUsingGoogleAds(url){
-    let browser;
-    let page;
-    const inputSelector = 'input.input-area _ngcontent-fbd-13'
-    try {
-        browser = await puppeteer.launch()
-        page = await browser.newPage()
-        page.setDefaultNavigationTimeout(120000)
-        
-        await page.goto(`https://adstransparency.google.com/?region=anywhere&domain=${url}`)
-        await page.waitForNavigation()
-        const adGrid = await page.$('div.grid-info _ngcontent-fbd-33')
-        const emptyResults = await page.$('empty-results _ngcontent-jbg-30')
-
-        if(adGrid){
-            return true
-        }else if(emptyResults){
-            return false
-        }else{
-            return 'Cannot Determine'
-        }
-
-    } catch (error) {
-     return {error: error.message}   
-    }finally{
-        await page?.close()
-        await browser?.close()
-    }
-}
 async function isUsingMetaAds(url){
     let browser;
     let page;
@@ -272,7 +243,7 @@ async function isUsingTwitterAds(url){
         });
         await page.goto(url);
         await page.waitForTimeout(10000); // Wait for a few seconds to capture network requests
-        if (hasFacebookPixel) {
+        if (hasTwitterPixel) {
             console.log('Twitter Pixel is present on the page.');
             return true
         } else {
@@ -342,10 +313,10 @@ async function isUsingGoogleAds(url){
         await page.goto(url);
         await page.waitForTimeout(10000); // Wait for a few seconds to capture network requests
         if (hasGoogleAds) {
-            console.log('Pinterest Pixel is present on the page.');
+            console.log('Google Pixel is present on the page.');
             return true
         } else {
-            console.log('Pinterest Pixel is not present on the page.');
+            console.log('Google Pixel is not present on the page.');
             return false
         }
     } catch (error) {
