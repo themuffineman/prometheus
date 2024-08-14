@@ -2,6 +2,7 @@ import axios from 'axios'
 import * as cheerio from 'cheerio'
 import emailValidator from 'deep-email-validator'
 import { config } from 'dotenv'
+import puppeteer from 'puppeteer'
 
 config()
 
@@ -196,7 +197,67 @@ async function getPagePeformance(url){
     }
 }
 
-getPagePeformance("https://pendora.org")
+async function isUsingGoogleAds(url){
+    let browser;
+    let page;
+    const inputSelector = 'input.input-area _ngcontent-fbd-13'
+    try {
+        browser = await puppeteer.launch()
+        page = await browser.newPage()
+        page.setDefaultNavigationTimeout(120000)
+        
+        await page.goto(`https://adstransparency.google.com/?region=anywhere&domain=${url}`)
+        await page.waitForNavigation()
+        const adGrid = await page.$('div.grid-info _ngcontent-fbd-33')
+        const emptyResults = await page.$('empty-results _ngcontent-jbg-30')
+
+        if(adGrid){
+            return true
+        }else if(emptyResults){
+            return false
+        }else{
+            return 'Cannot Determine'
+        }
+
+    } catch (error) {
+     return {error: error.message}   
+    }finally{
+        await page?.close()
+        await browser?.close()
+    }
+}
+async function isUsingMetaAds(url){
+    let browser;
+    let page;
+    let hasFacebookPixel = false;
+    try {
+        browser = await puppeteer.launch()
+        page = await browser.newPage()
+        page.setDefaultNavigationTimeout(120000)
+        page.on('request', (request) => {
+            const url = request.url();
+            if (url.includes('connect.facebook.net')) {
+                hasFacebookPixel = true;
+            }
+        });
+        await page.goto(url);
+        await page.waitForTimeout(10000); // Wait for a few seconds to capture network requests
+        if (hasFacebookPixel) {
+            console.log('Facebook Pixel is present on the page.');
+            return true
+        } else {
+            console.log('Facebook Pixel is not present on the page.');
+            return false
+        }
+    } catch (error) {
+        return {error: error.message}   
+    }finally{
+        await page?.close()
+        await browser?.close()
+    }
+}
+
+isUsingMetaAds("pendora.org")
 .then((result)=>{
     console.log(result)
 })
