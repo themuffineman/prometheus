@@ -128,6 +128,7 @@ async function generateEmailPermutations(firstName, lastName, domain) {
     const parsedUrl = new URL(domain);
     const origin = parsedUrl.origin;
 
+        //add more patterns
     const emailPatterns = [
         `${first}@${origin}`,
         `${last}@${origin}`,
@@ -176,10 +177,19 @@ async function getPagePeformance(url){
         if(!res.ok){
             throw new Error('Fetch Error')
         }
-        const peformanceData = await res.json()
+        const performanceData = await res.json()
+        const diagnostics = Object.values(performanceData.lighthouseResult?.audits)
+        .filter(audit => audit.details && audit.details.type === 'diagnostic')
+        .map(diagnostic => ({
+            title: diagnostic.title,
+            description: diagnostic.description
+        }));
+
+
         return {
-            tti: peformanceData.lighthouseResult.audits.interactive.displayValue, // The time it takes for the page to become fully interactive, where the page has loaded and is ready to respond to user inputs.
-            speed: peformanceData.lighthouseResult.audits['speed-index'].displayValue // How quickly the content of a page is visibly populated.
+            tti: performanceData.lighthouseResult.audits.interactive.displayValue, // The time it takes for the page to become fully interactive, where the page has loaded and is ready to respond to user inputs.
+            speed: performanceData.lighthouseResult.audits['speed-index'].displayValue, // How quickly the content of a page is visibly populated.
+            diagnostics: diagnostics
         }
     }catch(err){
         return {error: err.message}
