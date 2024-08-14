@@ -256,6 +256,105 @@ async function isUsingMetaAds(url){
         await browser?.close()
     }
 }
+async function isUsingTwitterAds(url){
+    let browser;
+    let page;
+    let hasTwitterPixel = false;
+    try {
+        browser = await puppeteer.launch()
+        page = await browser.newPage()
+        page.setDefaultNavigationTimeout(120000)
+        page.on('request', (request) => {
+            const url = request.url();
+            if (url.includes('static.ads-twitter.com')) {
+                hasTwitterPixel = true;
+            }
+        });
+        await page.goto(url);
+        await page.waitForTimeout(10000); // Wait for a few seconds to capture network requests
+        if (hasFacebookPixel) {
+            console.log('Twitter Pixel is present on the page.');
+            return true
+        } else {
+            console.log('Twitter Pixel is not present on the page.');
+            return false
+        }
+    } catch (error) {
+        return {error: error.message}   
+    }finally{
+        await page?.close()
+        await browser?.close()
+    }
+}
+async function isUsingPinterestAds(url) {
+    let browser;
+    let page;
+    let hasPinterestAds = false;
+    try {
+        browser = await puppeteer.launch()
+        page = await browser.newPage()
+        page.setDefaultNavigationTimeout(120000)
+        page.on('request', (request) => {
+            const url = request.url();
+            // Pinterest tracking/ads domains can include:
+            // - "tr.pinterest.com" (Pinterest Tag/Pixel)
+            // - "ct.pinterest.com" (Pinterest Ads click tracking)
+            // - "ads.pinterest.com" (General Pinterest Ads domain)
+            if (url.includes('tr.pinterest.com') || url.includes('ct.pinterest.com') || url.includes('ads.pinterest.com')) {
+                hasPinterestAds = true;
+            }
+        });
+        await page.goto(url);
+        await page.waitForTimeout(10000); // Wait for a few seconds to capture network requests
+        if (hasPinterestAds) {
+            console.log('Pinterest Pixel is present on the page.');
+            return true
+        } else {
+            console.log('Pinterest Pixel is not present on the page.');
+            return false
+        }
+    } catch (error) {
+        return {error: error.message}   
+    }finally{
+        await page?.close()
+        await browser?.close()
+    }
+}
+async function isUsingGoogleAds(url){
+    let browser;
+    let page;
+    let hasGoogleAds = false;
+    try {
+        browser = await puppeteer.launch()
+        page = await browser.newPage()
+        page.setDefaultNavigationTimeout(120000)
+        page.on('request', (request) => {
+            const url = request.url();
+            // Google Ads related domains
+            if (url.includes('googleads.g.doubleclick.net') ||
+                url.includes('pagead2.googlesyndication.com') ||
+                url.includes('adservice.google.com') ||
+                url.includes('tpc.googlesyndication.com') ||
+                url.includes('www.googleadservices.com')) {
+                hasGoogleAds = true;
+            }
+        });
+        await page.goto(url);
+        await page.waitForTimeout(10000); // Wait for a few seconds to capture network requests
+        if (hasGoogleAds) {
+            console.log('Pinterest Pixel is present on the page.');
+            return true
+        } else {
+            console.log('Pinterest Pixel is not present on the page.');
+            return false
+        }
+    } catch (error) {
+        return {error: error.message}   
+    }finally{
+        await page?.close()
+        await browser?.close()
+    }
+}
 
 isUsingMetaAds("pendora.org")
 .then((result)=>{
