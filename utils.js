@@ -326,8 +326,34 @@ async function isUsingGoogleAds(url){
         await browser?.close()
     }
 }
+async function getSiteCategory(){
+    try {
+        const res = await fetch('https://api.openai.com/v1/chat/completions', {
+            method: 'POST',
+            headers: {
+                "Content-Type": 'application/json',
+                "Authorization": `Bearer ${process.env.OPENAI_KEY}`
+            },
+            body: JSON.stringify({
+                "model": "gpt-4o-mini",
+                "messages": [{"role": "user", "content": "Say this is a hello world test!"}],
+                "temperature": 0.7
+            })
+        })
+        if(!res.ok){
+            const errorJSON = await res.json()
+            console.log(errorJSON)
+            // throw new Error(errorJSON)
+        }
 
-isUsingMetaAds("pendora.org")
+        const resJSON = await res.json()
+        return resJSON
+    } catch (error) {
+        // return error.message
+    }
+}
+
+getSiteCategory()
 .then((result)=>{
     console.log(result)
 })
