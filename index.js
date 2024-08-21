@@ -52,6 +52,7 @@ app.post('/api/google-maps', async (req,res)=>{
         const initInfo = []
         for (const card of cards) {
             const businessName = await card.$eval('div.rgnuSb.xYjf2e', node => node.textContent)
+            const phoneNumber = await card.$eval('div.NwqBmc > div.I9iumb:nth-child(3) > span.hGz87c:last-child', node => node.textContent)
             const websiteATag = await card.$('a[aria-label="Website"]')
             const url = websiteATag ? await (await websiteATag.getProperty('href')).jsonValue() : null
             initInfo.push({name: businessName, url: url})
