@@ -129,6 +129,7 @@ app.post('/api/yelp', async (req,res)=>{
             browserWSEndpoint: process.env.BROWSER_URL
         })
         page = await browser.newPage();
+        page.setDefaultTimeout(300000)
         await page.goto(yelpUrl) 
         console.log('Page navigated')
         try {
@@ -177,4 +178,11 @@ app.post('/api/yelp', async (req,res)=>{
         return res.sendStatus(500)
     }
 
+})
+app.post('/api/yellow-pages', async (req, res)=>{
+    const {service, location, pagination} = req.body
+    console.log('Received request')
+    
+    const cardSelector = 'div#e1.i_.div.clicktrackedAd_js.si101'
+    'div#endt-srp-top.endt-block'
 })
