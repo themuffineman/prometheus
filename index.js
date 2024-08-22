@@ -89,86 +89,92 @@ app.post('/api/google-maps', async (req,res)=>{
         return res.sendStatus(500)
     }
 })
-app.post('api/yelp', async (req,res)=>{
+app.post('/api/yelp', async (req,res)=>{
     const {service, location, pagination} = req.body
-    const cardSelectors = 'y-css-12ly5yx'
+    const cardSelector = '#main-content > ul'
     console.log('Received yelp request')
+    const yelpUrl = `https://www.yelp.com/search?find_desc=${service}&find_loc=${location}${pagination > 0 && `&start=${pagination*10}`}`
     let browser;
     let page;
 
-    for(let browserRetries = 0; browserRetries < 4; browserRetries++){
-        try {
-            browser = await puppeteer.connect({
-                browserWSEndpoint: process.env.BROWSER_URL
-            })
-            page = await browser.newPage();
-            await page.setRequestInterception(true);  
-            page.on('request', (request) => {  
-                if (request.resourceType() === 'image') {  
-                    request.abort();  
-                } else {  
-                    request.continue();  
-                }
-            })
-            if(browser && page){
-                break
-            }else{
-                throw new Error('Browser Launch Fail, retrying... :', browserRetries)
-            }
-        } catch (error) {
-            await page?.close()
-            await browser?.close()
-            if(browserRetries === 3){
-                return res.sendStatus(500)
-            }
-        }
-
-    }
+    // for(let browserRetries = 0; browserRetries < 4; browserRetries++){
+    //     try {
+    //         browser = await puppeteer.connect({
+    //             browserWSEndpoint: process.env.BROWSER_URL
+    //         })
+    //         page = await browser.newPage();
+    //         await page.setRequestInterception(true);  
+    //         page.on('request', (request) => {  
+    //             if (request.resourceType() === 'image') {  
+    //                 request.abort();  
+    //             } else {  
+    //                 request.continue();  
+    //             }
+    //         })
+    //         if(browser && page){
+    //             break
+    //         }else{
+    //             throw new Error('Browser Launch Fail, retrying... :', browserRetries)
+    //         }
+    //     } catch (error) {
+    //         console.log('Browser luanch error: ', error.message)
+    //         if(browserRetries === 3){
+    //             return res.sendStatus(500)
+    //         }
+    //     }
+    // }
 
     try {
-        await page.goto(`https://www.yelp.com/search?find_desc=${service}&find_loc=${location}${pagination > 0 && `&start=${pagination*10}`}`) 
-        
+        browser = await puppeteer.connect({
+            browserWSEndpoint: process.env.BROWSER_URL
+        })
+        page = await browser.newPage();
+        await page.goto(yelpUrl) 
+        console.log('Page navigated')
         try {
-            await page.waitForSelector('div.container__09f24__FeTO6 hoverable__09f24___UXLO y-css-xvvvfw');
+            await page.waitForSelector(cardSelector);
             console.log('Card loaded')
         } catch (error) {
-            console.log('Card Not loaded')
+            console.log('Card Not loaded: ', error.message)
         }
 
-        const cards = await page.$$(cardSelectors);
+        const cards = await page.$(cardSelector);
         console.log('Card extracted')
         const initInfo = []
         for (const card of cards) {
-            const name = await card.$eval(cardSelectors, node => node.textContent)
-            const businessYelpPage = await card.$(cardSelectors)
-            const yelpPageUrl = businessYelpPage ? await (await businessYelpPage.getProperty('href')).jsonValue() : null;
-            if(yelpPageUrl){
-                try {
-                    await page.goto(yelpPageUrl)
-                    await page.waitForSelector('div.y-css-1lfp6nf')
-                    console.log('All data appeared')
-                    const cardData = await page.$('div.y-css-1lfp6nf')
-                    const phone = cardData.$eval('p.y-css-1o34y7f', node => node.textContent)
-                    const href = cardData.$eval('a.y-css-1rq499d', node => node.href)
-                    const queryString = href.split('?')[1];
-                    const decodedQueryString = queryString.replace(/&amp;/g, '&');
-                    const params = new URLSearchParams(decodedQueryString);
-                    const url = params.get('url');
+            const name = await card.$eval('y-css-12ly5yx', node => node.textContent || null)
+            console.log('Name is:', name)
+            const businessYelpPage = await card.$eval('y-css-12ly5yx', node => node?.href || null)
+            console.log('Url: ', businessYelpPage)
+            // if(businessYelpPage){
+            //     try {
+            //         await page.goto(businessYelpPage)
+            //         await page.waitForSelector('div.y-css-1lfp6nf')
+            //         console.log('All data appeared')
+            //         const cardData = await page.$('div.y-css-1lfp6nf')
+            //         const phone = cardData.$eval('p.y-css-1o34y7f', node => node.textContent)
+            //         const href = cardData.$eval('a.y-css-1rq499d', node => node.href)
+            //         const queryString = href.split('?')[1];
+            //         const decodedQueryString = queryString.replace(/&amp;/g, '&');
+            //         const params = new URLSearchParams(decodedQueryString);
+            //         const url = params.get('url');
 
-                    initInfo.push({name,phone,url})
-                } catch (error) {
-                    console.log('Error scraping page')
-                }
+            //         initInfo.push({name,phone,url})
+            //     } catch (error) {
+            //         console.log('Error scraping page')
+            //     }
                 
-            }
+            // }
         }
         await page.close()
+        
         await browser.close()
 
         return res.json({data: initInfo}).status(200)
 
     } catch (error) {
-        
+        console.log('Scraper Error: ',error.message)
+        return res.sendStatus(500)
     }
 
 })
