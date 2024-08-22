@@ -45,7 +45,9 @@ app.post('/api/google-maps', async (req,res)=>{
         } catch (error) {
             await page?.close()
             await browser?.close()
-            continue
+            if(browserRetries === 3){
+                return res.sendStatus(500)
+            }
         }
 
     }
@@ -72,7 +74,7 @@ app.post('/api/google-maps', async (req,res)=>{
             const phoneNumber = await card.$eval('div.NwqBmc > div.I9iumb:nth-child(3) > span.hGz87c:last-child', node => node.textContent)
             const websiteATag = await card.$('a[aria-label="Website"]')
             const url = websiteATag ? await (await websiteATag.getProperty('href')).jsonValue() : null
-            initInfo.push({name: businessName, url: url})
+            initInfo.push({name: businessName, url: url, phone: phoneNumber})
         }
         await page.close()
         await browser.close()
@@ -86,4 +88,87 @@ app.post('/api/google-maps', async (req,res)=>{
         await browser?.close()
         return res.sendStatus(500)
     }
+})
+app.post('api/yelp', async (req,res)=>{
+    const {service, location, pagination} = req.body
+    const cardSelectors = 'y-css-12ly5yx'
+    console.log('Received yelp request')
+    let browser;
+    let page;
+
+    for(let browserRetries = 0; browserRetries < 4; browserRetries++){
+        try {
+            browser = await puppeteer.connect({
+                browserWSEndpoint: process.env.BROWSER_URL
+            })
+            page = await browser.newPage();
+            await page.setRequestInterception(true);  
+            page.on('request', (request) => {  
+                if (request.resourceType() === 'image') {  
+                    request.abort();  
+                } else {  
+                    request.continue();  
+                }
+            })
+            if(browser && page){
+                break
+            }else{
+                throw new Error('Browser Launch Fail, retrying... :', browserRetries)
+            }
+        } catch (error) {
+            await page?.close()
+            await browser?.close()
+            if(browserRetries === 3){
+                return res.sendStatus(500)
+            }
+        }
+
+    }
+
+    try {
+        await page.goto(`https://www.yelp.com/search?find_desc=${service}&find_loc=${location}${pagination > 0 && `&start=${pagination*10}`}`) 
+        
+        try {
+            await page.waitForSelector('div.container__09f24__FeTO6 hoverable__09f24___UXLO y-css-xvvvfw');
+            console.log('Card loaded')
+        } catch (error) {
+            console.log('Card Not loaded')
+        }
+
+        const cards = await page.$$(cardSelectors);
+        console.log('Card extracted')
+        const initInfo = []
+        for (const card of cards) {
+            const name = await card.$eval(cardSelectors, node => node.textContent)
+            const businessYelpPage = await card.$(cardSelectors)
+            const yelpPageUrl = businessYelpPage ? await (await businessYelpPage.getProperty('href')).jsonValue() : null;
+            if(yelpPageUrl){
+                try {
+                    await page.goto(yelpPageUrl)
+                    await page.waitForSelector('div.y-css-1lfp6nf')
+                    console.log('All data appeared')
+                    const cardData = await page.$('div.y-css-1lfp6nf')
+                    const phone = cardData.$eval('p.y-css-1o34y7f', node => node.textContent)
+                    const href = cardData.$eval('a.y-css-1rq499d', node => node.href)
+                    const queryString = href.split('?')[1];
+                    const decodedQueryString = queryString.replace(/&amp;/g, '&');
+                    const params = new URLSearchParams(decodedQueryString);
+                    const url = params.get('url');
+
+                    initInfo.push({name,phone,url})
+                } catch (error) {
+                    console.log('Error scraping page')
+                }
+                
+            }
+        }
+        await page.close()
+        await browser.close()
+
+        return res.json({data: initInfo}).status(200)
+
+    } catch (error) {
+        
+    }
+
 })
