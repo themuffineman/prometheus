@@ -93,7 +93,7 @@ app.post('/api/yelp', async (req,res)=>{
     const {service, location, pagination} = req.body
     const cardSelector = '#main-content > ul'
     console.log('Received yelp request')
-    const yelpUrl = `https://www.yelp.com/search?find_desc=${service}&find_loc=${location}${pagination > 0 && `&start=${pagination*10}`}`
+    const yelpUrl = `https://www.yelp.com/search?find_desc=${service}&find_loc=${location}${pagination > 0 ? `&start=${pagination*10}` : ''}`
     let browser;
     let page;
 
@@ -182,7 +182,40 @@ app.post('/api/yelp', async (req,res)=>{
 app.post('/api/yellow-pages', async (req, res)=>{
     const {service, location, pagination} = req.body
     console.log('Received request')
-    
-    const cardSelector = 'div#e1.i_.div.clicktrackedAd_js.si101'
-    'div#endt-srp-top.endt-block'
+    let browser;
+    let page;
+    const yellowPagesUrl = `https://www.yellowpages.com/search?search_terms=${service}&geo_location_terms=${location}${pagination > 0 ? `&page=${pagination}` : ''}`
+    const cardSelector = 'div.srp-listing.clickable-area'
+
+    try {
+        browser = await puppeteer.connect({
+            browserWSEndpoint: process.env.BROWSER_URL
+        })
+        page = await browser.newPage();
+        await page.goto(yellowPagesUrl, { waitUntil: 'networkidle2' }) 
+        console.log('Page navigated')
+        try {
+            await page.waitForSelector(cardSelector);
+            console.log('Card loaded')
+        } catch (error) {
+            console.log('Card Not loaded: ', error.message)
+        }
+
+        const cards = await page.$$(cardSelector);
+        console.log('Card extracted')
+        const initInfo = []
+        for (const card of cards) {
+            const name = await card.$eval('a.business-name span', node => node?.textContent || null)
+            const url = await card.$eval('a.track-visit-website', node => node?.getAttribute('href') || null)
+            const phone = await card.$eval('div.phones.phone.primary', node => node?.textContent)
+            console.log({url, phone, name})
+            initInfo.push({url, phone, name})
+        }
+        await page.close()
+        await browser.close()
+
+        return res.json({data: initInfo}).status(200)
+    } catch (error) {
+        console.log(error.message)
+    }
 })
