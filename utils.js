@@ -337,11 +337,10 @@ export class Prometheus{
 
 async function techStack(url){
     try {
-        const openai = new OpenAI({apiKey: 'xxx'});
+        const openai = new OpenAI({apiKey: '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'});
         const { data: html } = await axios.get(url)
-        console.log('html: ', html)
         const completion = await openai.chat.completions.create({
-            model: "gpt-4o-2024-08-06",
+            model: "gpt-4o-mini",
             messages: [
                 {role: "system", content: "You are an expert at structured data extraction and determining the tech stack used by a website. You will be given raw website html text data and you should extract the tech stack the website is using by looking for their signatures in the data. For example but no limited to react, vue, woocomerce, wordpress, shopify, squarespace etc. Return the extracted data following the given structure"},
                 { role: "user", content: `Here is the html: ${html}` },
@@ -353,19 +352,19 @@ async function techStack(url){
                     schema: {
                         type: "object",
                         properties: {
-                            texts: {
+                            stacks: {
                                 type: "array",
                                 items: { type: "string" }
                             }
                         },
-                        required: ["texts"],
+                        required: ["stacks"],
                         additionalProperties: false
                     },
                     strict: true
                 }
             }
         });
-        const techStack = completion.choices
+        const techStack = JSON.parse(completion.choices[0].message.content)
         console.log(techStack)
         return techStack
         
