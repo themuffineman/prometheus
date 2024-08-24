@@ -51,12 +51,8 @@ app.post('/api/google-maps', async (req,res)=>{
         }
 
     }
-
-    try {
-        
-          
+    try { 
         await page.goto(`https://www.google.com/localservices/prolist?g2lbs=AIQllVxEpXuuCPFrOHRAavT6nJMeIXUuM9D7r7-IlczaiEuKdgYVA09lqC7MIhZ3mUJ_MfwMM30K5vDmEB9UFLvwoZMUuqe_RIT2RmrDlIhrFndV8WuAgW-ioANkhbKSz__jtHfxKrJZLfFak9ca1Vbqi4HEnaKw7Q%3D%3D&hl=en-US&gl=&cs=1&ssta=1&q=${service}+in+${location}&oq=${service}+in+${location}&scp=Cg5nY2lkOmFyY2hpdGVjdBJMEhIJSTKCCzZwQIYRPN4IGI8c6xYaEgkLNjLkhLXqVBFCt95Dkrk7HCIKVGV4YXMsIFVTQSoUDV1uZg8VcypvwB3BkMEVJTvOQ8gwABoKYXJjaGl0ZWN0cyITYXJjaGl0ZWN0cyBpbiB0ZXhhcyoJQXJjaGl0ZWN0&slp=MgA6HENoTUkxWXZoamNfVmhBTVZZSUJRQmgxMkpBRTRSAggCYACSAZsCCgsvZy8xdGg2ZjZ4ZwoNL2cvMTFoY3c1ZDltZAoLL2cvMXd5YzRybWQKDC9nLzEycWg5dzhmZAoNL2cvMTFnNm5sMGxmNQoLL2cvMXRkY2dzdjQKCy9nLzF0aGwxODBzCgsvZy8xdGc3c2RmNwoLL2cvMXRkNGR6cTEKCy9nLzF0ZnNuZDRfCg0vZy8xMWI3bHBtOGIxCgsvZy8xdHp6dng1bAoLL2cvMXRrNHJsMTEKCy9nLzF0a3ZiNGpzCg0vZy8xMWJ4OGNteHM4Cg0vZy8xMWNuMF93MTkxCgsvZy8xdG15NWdzaAoLL2cvMXYzaF9jM3EKCy9nLzF2eWsyeHpnCgsvZy8xdGZtY24xcRIEEgIIARIECgIIAZoBBgoCFxkQAA%3D%3D&src=2&serdesk=1&sa=X&ved=2ahUKEwiyo9uNz9WEAxUMQkEAHZWwBcEQjGp6BAgfEAE&lci=${(parseInt(pagination))*20}`)
-
         // Wait for cards to load
         try {
             await page.waitForSelector('div.rgnuSb.xYjf2e');
@@ -65,23 +61,33 @@ app.post('/api/google-maps', async (req,res)=>{
         } catch (error) {
             console.log('Card Not loaded')
         }
-
         const cards = await page.$$('div[jsname="gam5T"]');
         console.log('Card extracted')
         const initInfo = []
         for (const card of cards) {
-            const businessName = await card.$eval('div.rgnuSb.xYjf2e', node => node.textContent)
-            const phoneNumber = await card.$eval('div.NwqBmc > div.I9iumb:nth-child(3) > span.hGz87c:last-child', node => node.textContent)
-            const websiteATag = await card.$('a[aria-label="Website"]')
-            const url = websiteATag ? await (await websiteATag.getProperty('href')).jsonValue() : null
-            initInfo.push({name: businessName, url: url, phone: phoneNumber})
+            let name 
+            try {
+                name = await card.$eval('div.rgnuSb.xYjf2e', node => node.textContent)
+            } catch (error) {
+                continue
+            }
+            let phone 
+            try {
+                phone = await card.$eval('div.NwqBmc > div.I9iumb:nth-child(3) > span.hGz87c:last-child', node => node.textContent)
+            } catch (error) {
+                continue
+            }
+            let url 
+            try {
+                url = await card.$eval('a[aria-label="Website"]', node => node.href)
+            } catch (error) {
+                continue
+            }
+            initInfo.push({name, url, phone})
         }
         await page.close()
         await browser.close()
-
         return res.json({data: initInfo}).status(200)
-
-
     } catch (error) {
         console.error("Error in GMP Scraper:", error.message)
         await page?.close()
@@ -97,39 +103,34 @@ app.post('/api/yelp', async (req,res)=>{
     let browser;
     let page;
 
-    // for(let browserRetries = 0; browserRetries < 4; browserRetries++){
-    //     try {
-    //         browser = await puppeteer.connect({
-    //             browserWSEndpoint: process.env.BROWSER_URL
-    //         })
-    //         page = await browser.newPage();
-    //         await page.setRequestInterception(true);  
-    //         page.on('request', (request) => {  
-    //             if (request.resourceType() === 'image') {  
-    //                 request.abort();  
-    //             } else {  
-    //                 request.continue();  
-    //             }
-    //         })
-    //         if(browser && page){
-    //             break
-    //         }else{
-    //             throw new Error('Browser Launch Fail, retrying... :', browserRetries)
-    //         }
-    //     } catch (error) {
-    //         console.log('Browser luanch error: ', error.message)
-    //         if(browserRetries === 3){
-    //             return res.sendStatus(500)
-    //         }
-    //     }
-    // }
-
+    
     try {
-        browser = await puppeteer.connect({
-            browserWSEndpoint: process.env.BROWSER_URL
-        })
-        page = await browser.newPage();
-        page.setDefaultTimeout(300000)
+        for(let browserRetries = 0; browserRetries < 4; browserRetries++){
+            try {
+                browser = await puppeteer.connect({
+                    browserWSEndpoint: process.env.BROWSER_URL
+                })
+                page = await browser.newPage();
+                await page.setRequestInterception(true);  
+                page.on('request', (request) => {  
+                    if (request.resourceType() === 'image') {  
+                        request.abort();  
+                    } else {  
+                        request.continue();  
+                    }
+                })
+                if(browser && page){
+                    break
+                }else{
+                    throw new Error('Browser Launch Fail, retrying... :', browserRetries)
+                }
+            } catch (error) {
+                console.log('Browser luanch error: ', error.message)
+                if(browserRetries === 3){
+                    return res.sendStatus(500)
+                }
+            }
+        }
         await page.goto(yelpUrl) 
         console.log('Page navigated')
         try {
@@ -143,38 +144,44 @@ app.post('/api/yelp', async (req,res)=>{
         console.log('Card extracted')
         const initInfo = []
         for (const card of cards) {
-            const name = await card.$eval('y-css-12ly5yx', node => node.textContent || null)
-            console.log('Name is:', name)
+            let name
+            try {
+                name = await card.$eval('y-css-12ly5yx', node => node.textContent || null)
+            } catch (error) {
+                continue
+            }
             const businessYelpPage = await card.$eval('y-css-12ly5yx', node => node?.href || null)
+            console.log('Name is:', name)
             console.log('Url: ', businessYelpPage)
-            // if(businessYelpPage){
-            //     try {
-            //         await page.goto(businessYelpPage)
-            //         await page.waitForSelector('div.y-css-1lfp6nf')
-            //         console.log('All data appeared')
-            //         const cardData = await page.$('div.y-css-1lfp6nf')
-            //         const phone = cardData.$eval('p.y-css-1o34y7f', node => node.textContent)
-            //         const href = cardData.$eval('a.y-css-1rq499d', node => node.href)
-            //         const queryString = href.split('?')[1];
-            //         const decodedQueryString = queryString.replace(/&amp;/g, '&');
-            //         const params = new URLSearchParams(decodedQueryString);
-            //         const url = params.get('url');
+            if(businessYelpPage){
+                try {
+                    await page.goto(businessYelpPage)
+                    await page.waitForSelector('div.y-css-1lfp6nf')
+                    console.log('All data appeared')
+                    const cardData = await page.$('div.y-css-1lfp6nf')
+                    const phone = cardData.$eval('p.y-css-1o34y7f', node => node.textContent)
+                    const href = cardData.$eval('a.y-css-1rq499d', node => node.href)
+                    const queryString = href.split('?')[1];
+                    const decodedQueryString = queryString.replace(/&amp;/g, '&');
+                    const params = new URLSearchParams(decodedQueryString);
+                    const url = params.get('url');
 
-            //         initInfo.push({name,phone,url})
-            //     } catch (error) {
-            //         console.log('Error scraping page')
-            //     }
+                    initInfo.push({name,phone,url})
+                } catch (error) {
+                    console.log('Error scraping page')
+                }
                 
-            // }
+            }
         }
         await page.close()
-        
         await browser.close()
 
         return res.json({data: initInfo}).status(200)
 
     } catch (error) {
-        console.log('Scraper Error: ',error.message)
+        await page?.close()
+        await browser?.close()
+        console.log(error.message)
         return res.sendStatus(500)
     }
 
@@ -187,16 +194,38 @@ app.post('/api/yellow-pages', async (req, res)=>{
     const yellowPagesUrl = `https://www.yellowpages.com/search?search_terms=${service}&geo_location_terms=${location}${pagination > 0 ? `&page=${pagination}` : ''}`
     const cardSelector = 'div.srp-listing.clickable-area'
 
+    for(let browserRetries = 0; browserRetries < 4; browserRetries++){
+        try {
+            browser = await puppeteer.connect({
+                browserWSEndpoint: process.env.BROWSER_URL
+            })
+            page = await browser.newPage();
+            await page.setRequestInterception(true);  
+            page.on('request', (request) => {  
+                if (request.resourceType() === 'image') {  
+                    request.abort();  
+                } else {  
+                    request.continue();  
+                }
+            })
+            if(browser && page){
+                break
+            }else{
+                throw new Error('Browser Launch Fail, retrying... :', browserRetries)
+            }
+        } catch (error) {
+            console.info('Browser luanch error: ', error.message)
+            if(browserRetries === 3){
+                return res.sendStatus(500)
+            }
+        }
+    }
     try {
-        browser = await puppeteer.connect({
-            browserWSEndpoint: process.env.BROWSER_URL
-        })
-        page = await browser.newPage();
-        await page.goto(yellowPagesUrl, { waitUntil: 'networkidle2' }) 
+
+        await page.goto(yellowPagesUrl) 
         console.log('Page navigated')
         try {
             await page.waitForSelector(cardSelector);
-            console.log('Card loaded')
         } catch (error) {
             console.log('Card Not loaded: ', error.message)
         }
@@ -205,17 +234,34 @@ app.post('/api/yellow-pages', async (req, res)=>{
         console.log('Card extracted')
         const initInfo = []
         for (const card of cards) {
-            const name = await card.$eval('a.business-name span', node => node?.textContent || null)
-            const url = await card.$eval('a.track-visit-website', node => node?.getAttribute('href') || null)
-            const phone = await card.$eval('div.phones.phone.primary', node => node?.textContent)
-            console.log({url, phone, name})
-            initInfo.push({url, phone, name})
+            let name 
+            try {
+                name = await card.$eval('a.business-name span', node => node?.textContent || null)
+            } catch (error) {
+                continue
+            }
+            let url;
+            try {
+                url = await card.$eval('a.track-visit-website', node => node?.getAttribute('href') || null);
+            } catch (error) {
+                continue
+            }
+            let phone 
+            try {
+                phone = await card.$eval('div.phones.phone.primary', node => node?.textContent)
+            } catch (error) {
+                continue
+            } 
+            initInfo.push({name, url, phone})
         }
         await page.close()
         await browser.close()
 
         return res.json({data: initInfo}).status(200)
     } catch (error) {
-        console.log(error.message)
+        await page?.close()
+        await browser?.close()
+        console.error(error.message)
+        return res.sendStatus(500)
     }
 })
