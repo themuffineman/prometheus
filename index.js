@@ -1,6 +1,6 @@
 import puppeteer from "puppeteer-core"
 import express from 'express'
-import Prometheus from "./utils"
+import Prometheus from "./utils.js"
 import {config} from 'dotenv'
 import cors from 'cors'
 import WebSocket from 'ws'
