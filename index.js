@@ -3,7 +3,7 @@ import express from 'express'
 import Prometheus from "./utils.js"
 import {config} from 'dotenv'
 import cors from 'cors'
-import WebSocket from 'ws'
+import { WebSocketServer } from 'ws';
 import { v4 as uuidv4 } from 'uuid';
 
 config()
@@ -14,6 +14,7 @@ const clients = new Map()
 server = app.listen(8080, ()=>{
     console.log('Server running')
 })
+wss = new WebSocketServer({ server });
 app.use((req, res, next) => {
     const apiKey = req.header('x-api-key');
     if (apiKey && apiKey === process.env.SERVER_API_KEY) {
@@ -26,7 +27,6 @@ app.use(cors({
     origin: '*'
 }))
 app.use(express.json());
-wss = new WebSocket.Server({ server });
 wss.on('connection', ws => {
     const id = uuidv4(); 
     clients.set(id, ws);
