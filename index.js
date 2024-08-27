@@ -3,7 +3,7 @@ import express from 'express'
 import Prometheus from "./utils.js"
 import {config} from 'dotenv'
 import cors from 'cors'
-import { WebSocketServer } from 'ws';
+import { WebSocketServer, WebSocket } from 'ws';
 import { v4 as uuidv4 } from 'uuid';
 
 config()
