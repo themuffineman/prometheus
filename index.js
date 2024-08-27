@@ -11,7 +11,7 @@ const app = express()
 let server;
 let wss;
 const clients = new Map()
-server = app.listen(process.env.PORT, ()=>{
+server = app.listen(8080, ()=>{
     console.log('Server running')
 })
 app.use((req, res, next) => {
