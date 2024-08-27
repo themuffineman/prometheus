@@ -23,9 +23,7 @@ app.use((req, res, next) => {
       res.status(403).send('Forbidden'); // Invalid API key
     }
 })
-app.use(cors({
-    origin: '*'
-}))
+app.use(cors({ origin: 'https://pendora-mvp.vercel.app' }));
 app.use(express.json());
 wss.on('connection', ws => {
     const id = uuidv4(); 
