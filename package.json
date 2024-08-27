@@ -2,10 +2,10 @@
   "name": "prometheus",
   "version": "1.0.0",
   "description": "",
-  "main": "googleMaps.js",
+  "main": "index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "start": "node googleMaps.js"
+    "start": "node index.js"
   },
   "type": "module",
   "keywords": [],
