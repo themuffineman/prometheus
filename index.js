@@ -1,11 +1,18 @@
 import puppeteer from "puppeteer-core"
 import express from 'express'
+import Prometheus from "./utils"
 import {config} from 'dotenv'
+import cors from 'cors'
+import WebSocket from 'ws'
+import { v4 as uuidv4 } from 'uuid';
 
 config()
 const app = express()
-app.listen(process.env.G_MAPS_PORT, ()=>{
-    console.log('GMAPS server up and running')
+let server;
+let wss;
+const clients = new Map()
+server = app.listen(process.env.PORT, ()=>{
+    console.log('Server running')
 })
 app.use((req, res, next) => {
     const apiKey = req.header('x-api-key');
@@ -15,14 +22,45 @@ app.use((req, res, next) => {
       res.status(403).send('Forbidden'); // Invalid API key
     }
 })
+app.use(cors({
+    origin: '*'
+}))
 app.use(express.json());
-app.post('/api/google-maps', async (req,res)=>{
-    const {service, location , pagination } = req.body
-    console.log('Received Request')
-    let browser;
-    let page;
+wss = new WebSocket.Server({ server });
+wss.on('connection', ws => {
+    const id = uuidv4(); 
+    clients.set(id, ws);
+    ws.id = id; 
+    broadcast(id, id, 'id')
+    console.log('Client:', id, ' ,connected to WebSocket server');
+    ws.on('close', () => {
+        clients.delete(id)
+        console.log('Client:', id, ' ,disconnected from WebSocket server');
+    });
+});
+function broadcast(id, data, type) {
+    const client = clients.get(id);
+    if (client && client.readyState === WebSocket.OPEN) {
+        client.send(JSON.stringify({ type, data }))
+    } else {
+        console.error(`Client with ID ${id} not found or not open`);
+    }
+}
+function closeClientConnection(id) {
+    const client = clients.get(id);
+    if (client) {
+        client.close(); // Close the WebSocket connection
+        clients.delete(id); // Remove client from the map
+        console.log(`Client with ID ${id} has been disconnected`);
+    } else {
+        console.error(`Client with ID ${id} not found`);
+    }
+}
 
-    
+app.post('/api/google-maps', async (req,res)=>{
+    const {service, location , pagination, clientId } = req.body
+    let page;    
+    let browser;
     for(let browserRetries = 0; browserRetries < 4; browserRetries++){
         try {
             browser = await puppeteer.connect({
@@ -32,7 +70,7 @@ app.post('/api/google-maps', async (req,res)=>{
             await page.setRequestInterception(true);  
             page.on('request', (request) => {  
                 if (request.resourceType() === 'image') {  
-                    request.abort();  
+                    request.abort(); 
                 } else {  
                     request.continue();  
                 }
@@ -53,7 +91,7 @@ app.post('/api/google-maps', async (req,res)=>{
     }
     try { 
         await page.goto(`https://www.google.com/localservices/prolist?g2lbs=AIQllVxEpXuuCPFrOHRAavT6nJMeIXUuM9D7r7-IlczaiEuKdgYVA09lqC7MIhZ3mUJ_MfwMM30K5vDmEB9UFLvwoZMUuqe_RIT2RmrDlIhrFndV8WuAgW-ioANkhbKSz__jtHfxKrJZLfFak9ca1Vbqi4HEnaKw7Q%3D%3D&hl=en-US&gl=&cs=1&ssta=1&q=${service}+in+${location}&oq=${service}+in+${location}&scp=Cg5nY2lkOmFyY2hpdGVjdBJMEhIJSTKCCzZwQIYRPN4IGI8c6xYaEgkLNjLkhLXqVBFCt95Dkrk7HCIKVGV4YXMsIFVTQSoUDV1uZg8VcypvwB3BkMEVJTvOQ8gwABoKYXJjaGl0ZWN0cyITYXJjaGl0ZWN0cyBpbiB0ZXhhcyoJQXJjaGl0ZWN0&slp=MgA6HENoTUkxWXZoamNfVmhBTVZZSUJRQmgxMkpBRTRSAggCYACSAZsCCgsvZy8xdGg2ZjZ4ZwoNL2cvMTFoY3c1ZDltZAoLL2cvMXd5YzRybWQKDC9nLzEycWg5dzhmZAoNL2cvMTFnNm5sMGxmNQoLL2cvMXRkY2dzdjQKCy9nLzF0aGwxODBzCgsvZy8xdGc3c2RmNwoLL2cvMXRkNGR6cTEKCy9nLzF0ZnNuZDRfCg0vZy8xMWI3bHBtOGIxCgsvZy8xdHp6dng1bAoLL2cvMXRrNHJsMTEKCy9nLzF0a3ZiNGpzCg0vZy8xMWJ4OGNteHM4Cg0vZy8xMWNuMF93MTkxCgsvZy8xdG15NWdzaAoLL2cvMXYzaF9jM3EKCy9nLzF2eWsyeHpnCgsvZy8xdGZtY24xcRIEEgIIARIECgIIAZoBBgoCFxkQAA%3D%3D&src=2&serdesk=1&sa=X&ved=2ahUKEwiyo9uNz9WEAxUMQkEAHZWwBcEQjGp6BAgfEAE&lci=${(parseInt(pagination))*20}`)
-        // Wait for cards to load
+
         try {
             await page.waitForSelector('div.rgnuSb.xYjf2e');
             await page.waitForSelector('.AIYI7d');
@@ -83,11 +121,18 @@ app.post('/api/google-maps', async (req,res)=>{
             } catch (error) {
                 continue
             }
-            initInfo.push({name, url, phone})
+            const engine = new Prometheus(url)
+            const emails = await engine.getEmails()
+            const socials = await engine.getSocialLinks()
+            const performance = await engine.getPagePeformance()
+            const ads = await engine.adsUsed()
+            const techStack = await engine.techStack()
+            broadcast(clientId, JSON.stringify({name, url, phone, emails, performance, ads, techStack, socials}), 'lead')
+            console.log({name, url, phone, emails, performance, ads, techStack, socials})
         }
         await page.close()
         await browser.close()
-        return res.json({data: initInfo}).status(200)
+        return res.sendStatus(200)
     } catch (error) {
         console.error("Error in GMP Scraper:", error.message)
         await page?.close()
@@ -252,7 +297,15 @@ app.post('/api/yellow-pages', async (req, res)=>{
             } catch (error) {
                 continue
             } 
-            initInfo.push({name, url, phone})
+            const engine = new Prometheus(url)
+            const emails = await engine.getEmails()
+            const socials = await engine.getSocialLinks()
+            const peformance = await engine.getPagePeformance()
+            const ads = await engine.adsUsed(page)
+            const techStack = await engine.techStack()
+            const traffic = await engine.webTraffic()
+            broadcast(clientId, JSON.stringify({name, url, phone, emails, peformance, ads, techStack, traffic, socials}), 'lead')
+            console.log({name, url, phone,emails, peformance, ads, techStack, traffic})
         }
         await page.close()
         await browser.close()
@@ -265,3 +318,9 @@ app.post('/api/yellow-pages', async (req, res)=>{
         return res.sendStatus(500)
     }
 })
+app.get('/api/cancel-process', async (req, res) => {
+    const {clientId} = req.query
+    console.log('Received cancel-process request. Cleaning up...');
+    closeClientConnection(clientId)
+    res.send('Process cancellation initiated');
+});
